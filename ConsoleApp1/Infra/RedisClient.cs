@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using StackExchange.Redis;
 
@@ -50,8 +53,13 @@ namespace ConsoleApp1.Infra
         public async Task<RedisValue> GetString(string key)
         {
             var database = _connection.GetDatabase();
-
             return await database.StringGetAsync(key);
+        }
+
+        public async Task<long> StringDecrement(string key)
+        {
+            var database = _connection.GetDatabase();
+            return await database.StringDecrementAsync(key);
         }
 
         public async Task<bool> LockRelease(string key)
@@ -62,11 +70,21 @@ namespace ConsoleApp1.Infra
             return await database.LockReleaseAsync(lockKey, Environment.MachineName);
         }
 
-        public async Task<long> StringDecrement(string key)
+        public async Task<long> Publish(string key, string value)
         {
-            var database = _connection.GetDatabase();
+            var database = _connection.GetSubscriber();
 
-            return await database.StringDecrementAsync(key);
+            return await database.PublishAsync(key, value);
+        }
+
+        public async Task Subscribe(string key, Action<RedisValue> action)
+        {
+            var subscriber = _connection.GetSubscriber();
+            var messageQueue = await subscriber.SubscribeAsync(key);
+            messageQueue.OnMessage(message =>
+            {
+                action(message.Message);
+            });
         }
     }
 }
