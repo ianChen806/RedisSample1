@@ -10,6 +10,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using RedisSample.Infra;
+using RedisSample.Service;
 
 namespace RedisSample
 {
@@ -26,6 +28,9 @@ namespace RedisSample
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
+            
+            services.AddSingleton<RedisClient>();
+            services.AddScoped<TicketService>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

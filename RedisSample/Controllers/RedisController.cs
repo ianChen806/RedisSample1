@@ -1,5 +1,12 @@
+using System.Collections;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using RedisSample.Infra;
+using RedisSample.Service;
 using StackExchange.Redis;
 
 namespace RedisSample.Controllers
@@ -8,30 +15,57 @@ namespace RedisSample.Controllers
     [Route("Redis/[action]")]
     public class RedisController
     {
-        [HttpGet]
-        public async Task<string> Get()
+        private readonly RedisClient _client;
+        private readonly TicketService _service;
+
+        public RedisController(RedisClient redisClient, TicketService ticketService)
         {
-            var redis = await ConnectionMultiplexer.ConnectAsync("localhost");
-            var database = redis.GetDatabase();
-
-            var value = await database.StringGetAsync("test-key");
-
-            return value;
+            _client = redisClient;
+            _service = ticketService;
         }
 
         [HttpGet]
-        public async Task<bool> Index()
+        public async Task<int> Get()
         {
-            var options = new ConfigurationOptions()
+            var result = new ConcurrentStack<bool>();
+            var tasks = new List<Task>();
+            for (var index = 0; index < 200; index++)
             {
-                EndPoints = {"localhost"},
-                ReconnectRetryPolicy = new ExponentialRetry(5000),
-            };
+                var task = Task.Run(async () =>
+                {
+                    var ticket = await _service.GetTicket();
+                    result.Push(ticket);
+                });
+                tasks.Add(task);
+            }
+            await Task.WhenAll(tasks);
 
-            var redis = await ConnectionMultiplexer.ConnectAsync(options);
-            var database = redis.GetDatabase();
+            return result.Count(r => r);
+        }
 
-            return await database.StringSetAsync("test-key", "test");
+        [HttpGet]
+        public async Task<Dictionary<string, string>> Init()
+        {
+            await _client.SetHash("Event", "Id", "123");
+            await _client.SetHash("Event", "Count", 100);
+
+            return await _client.GetHash("Event");
+        }
+
+
+        [HttpGet]
+        public async Task<Dictionary<string, string>> Value()
+        {
+            return await _client.GetHash("Event");
+        }
+
+        [HttpGet]
+        public string Test()
+        {
+            var ints = new List<int>() {1, 2, 3, 4, 5};
+            var stack = new Stack<int>(ints);
+
+            return string.Join(",", stack.ToList());
         }
     }
 }
