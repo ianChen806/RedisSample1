@@ -6,7 +6,7 @@ namespace RedisSample.Controllers
 {
     [ApiController]
     [Route("Redis/[action]")]
-    public class RedisClient
+    public class RedisController
     {
         [HttpGet]
         public async Task<string> Get()
